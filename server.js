@@ -48,26 +48,71 @@ app.use(morgan('combined'));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// MongoDB connection - non-blocking for serverless environments
+// MongoDB connection - optimized for serverless environments
 let dbConnected = false;
+let connectionPromise = null;
+
 const connectDB = async () => {
-  try {
-    if (!process.env.MONGODB_URI) {
-      console.warn('MONGODB_URI not set. Database operations will fail.');
-      return;
-    }
-    const conn = await mongoose.connect(process.env.MONGODB_URI, {
-      serverSelectionTimeoutMS: 5000, // Timeout after 5s instead of 30s
-    });
+  // If already connected, return
+  if (mongoose.connection.readyState === 1) {
     dbConnected = true;
-    console.log(`MongoDB Connected: ${conn.connection.host}`);
-  } catch (error) {
-    console.error('Error connecting to MongoDB:', error.message);
-    dbConnected = false;
-    // Don't exit - allow server to start even if DB is down
-    // This is important for serverless environments like Vercel
-    console.warn('Server will continue without database connection. API calls requiring DB will fail.');
+    return mongoose.connection;
   }
+  
+  // If connection is in progress, return the existing promise
+  if (connectionPromise) {
+    return connectionPromise;
+  }
+  
+  // Start new connection
+  connectionPromise = (async () => {
+    try {
+      if (!process.env.MONGODB_URI) {
+        console.warn('MONGODB_URI not set. Database operations will fail.');
+        dbConnected = false;
+        return null;
+      }
+      
+      // Check if already connected (for serverless reuse)
+      if (mongoose.connection.readyState === 1) {
+        dbConnected = true;
+        return mongoose.connection;
+      }
+      
+      const conn = await mongoose.connect(process.env.MONGODB_URI, {
+        serverSelectionTimeoutMS: 10000, // 10s timeout for serverless
+        socketTimeoutMS: 45000,
+        maxPoolSize: 10,
+        minPoolSize: 1,
+      });
+      
+      dbConnected = true;
+      console.log(`MongoDB Connected: ${conn.connection.host}`);
+      
+      // Handle connection events
+      mongoose.connection.on('error', (err) => {
+        console.error('MongoDB connection error:', err);
+        dbConnected = false;
+        connectionPromise = null;
+      });
+      
+      mongoose.connection.on('disconnected', () => {
+        console.warn('MongoDB disconnected');
+        dbConnected = false;
+        connectionPromise = null;
+      });
+      
+      return conn;
+    } catch (error) {
+      console.error('Error connecting to MongoDB:', error.message);
+      dbConnected = false;
+      connectionPromise = null;
+      // Don't throw - allow server to continue
+      return null;
+    }
+  })();
+  
+  return connectionPromise;
 };
 
 // Routes
@@ -146,18 +191,21 @@ app.use((req, res) => {
 
 // Start server
 const startServer = async () => {
-  // Connect to DB but don't block server startup
+  // For Vercel/serverless, try to connect but don't block
+  if (process.env.VERCEL) {
+    // In serverless, connection will be attempted on first request
+    // This is just a pre-warm attempt
+    connectDB().catch(() => {
+      // Silently fail - connection will be retried on first DB operation
+    });
+    return app;
+  }
+  
+  // For traditional server deployment, connect on startup
   connectDB().catch(err => {
     console.error('Failed to connect to database on startup:', err.message);
   });
   
-  // For Vercel/serverless, export the app directly
-  if (process.env.VERCEL) {
-    // Vercel will handle the server
-    return app;
-  }
-  
-  // For traditional server deployment
   app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
     console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
@@ -168,6 +216,9 @@ const startServer = async () => {
 // Start server only if not in Vercel serverless environment
 if (!process.env.VERCEL) {
   startServer().catch(console.error);
+} else {
+  // For Vercel, just ensure app is ready
+  startServer();
 }
 
 // Export for Vercel serverless - Vercel will call this as a serverless function
