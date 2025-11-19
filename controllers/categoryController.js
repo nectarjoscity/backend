@@ -27,7 +27,20 @@ export const getCategories = async (req, res) => {
     });
     return res.status(200).json({ success: true, count: categories.length, data: categories });
   } catch (error) {
-    return res.status(500).json({ success: false, message: 'Error fetching categories', error: error.message });
+    console.error('Error in getCategories:', error);
+    // Check if it's a database connection error
+    if (error.name === 'MongoServerError' || error.name === 'MongooseError' || error.message?.includes('MongoDB') || error.message?.includes('connection')) {
+      return res.status(503).json({ 
+        success: false, 
+        message: 'Database connection error. Please check your MongoDB configuration.', 
+        error: process.env.NODE_ENV === 'production' ? {} : error.message 
+      });
+    }
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Error fetching categories', 
+      error: process.env.NODE_ENV === 'production' ? {} : error.message 
+    });
   }
 };
 

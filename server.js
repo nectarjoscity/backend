@@ -48,14 +48,25 @@ app.use(morgan('combined'));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// MongoDB connection
+// MongoDB connection - non-blocking for serverless environments
+let dbConnected = false;
 const connectDB = async () => {
   try {
-    const conn = await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/nectarv');
+    if (!process.env.MONGODB_URI) {
+      console.warn('MONGODB_URI not set. Database operations will fail.');
+      return;
+    }
+    const conn = await mongoose.connect(process.env.MONGODB_URI, {
+      serverSelectionTimeoutMS: 5000, // Timeout after 5s instead of 30s
+    });
+    dbConnected = true;
     console.log(`MongoDB Connected: ${conn.connection.host}`);
   } catch (error) {
     console.error('Error connecting to MongoDB:', error.message);
-    process.exit(1);
+    dbConnected = false;
+    // Don't exit - allow server to start even if DB is down
+    // This is important for serverless environments like Vercel
+    console.warn('Server will continue without database connection. API calls requiring DB will fail.');
   }
 };
 
@@ -69,10 +80,13 @@ app.get('/', (req, res) => {
 });
 
 app.get('/api/health', (req, res) => {
+  const dbStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
   res.json({
     status: 'healthy',
     timestamp: new Date().toISOString(),
-    uptime: process.uptime()
+    uptime: process.uptime(),
+    database: dbStatus,
+    mongodbState: mongoose.connection.readyState // 0=disconnected, 1=connected, 2=connecting, 3=disconnecting
   });
 });
 
@@ -84,15 +98,31 @@ app.use('/api/categories', categoryRoutes);
 app.use('/api/menu-items', menuItemRoutes);
 app.use('/api/orders', orderRoutes);
 
-// Error handling middleware
+// Error handling middleware - must be after routes
 app.use((err, req, res, next) => {
-  console.error('Error:', err.stack);
+  console.error('Error:', err.stack || err.message);
+  
+  // Ensure CORS headers are always set, even on errors
+  const origin = req.headers.origin;
+  if (origin && (allowedOrigins.indexOf(origin) !== -1 || !process.env.ALLOWED_ORIGINS)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+  }
   
   // Handle CORS errors
   if (err.message === 'Not allowed by CORS') {
     return res.status(403).json({
       success: false,
       message: 'CORS: Origin not allowed',
+      error: process.env.NODE_ENV === 'production' ? {} : err.message
+    });
+  }
+  
+  // Handle MongoDB connection errors
+  if (err.name === 'MongoServerError' || err.name === 'MongooseError' || err.message?.includes('MongoDB')) {
+    return res.status(503).json({
+      success: false,
+      message: 'Database connection error. Please try again later.',
       error: process.env.NODE_ENV === 'production' ? {} : err.message
     });
   }
@@ -116,13 +146,29 @@ app.use((req, res) => {
 
 // Start server
 const startServer = async () => {
-  await connectDB();
+  // Connect to DB but don't block server startup
+  connectDB().catch(err => {
+    console.error('Failed to connect to database on startup:', err.message);
+  });
+  
+  // For Vercel/serverless, export the app directly
+  if (process.env.VERCEL) {
+    // Vercel will handle the server
+    return app;
+  }
+  
+  // For traditional server deployment
   app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
     console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`CORS allowed origins: ${allowedOrigins.join(', ')}`);
   });
 };
 
-startServer().catch(console.error);
+// Start server only if not in Vercel serverless environment
+if (!process.env.VERCEL) {
+  startServer().catch(console.error);
+}
 
+// Export for Vercel serverless - Vercel will call this as a serverless function
 export default app;
