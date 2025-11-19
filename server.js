@@ -18,8 +18,32 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Middleware
-app.use(helmet());
-app.use(cors({ origin: ['http://localhost:3001', 'http://localhost:3000','https://backend-blue-eta-17.vercel.app'], credentials: true }));
+// Configure CORS with environment-based origins
+const allowedOrigins = process.env.ALLOWED_ORIGINS 
+  ? process.env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim())
+  : ['http://localhost:3000', 'http://localhost:3001'];
+
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  crossOriginEmbedderPolicy: false
+}));
+app.use(cors({ 
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      console.warn(`CORS blocked origin: ${origin}. Allowed origins:`, allowedOrigins);
+      callback(null, true); // Temporarily allow all for debugging - change back to Error in production
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['Content-Range', 'X-Content-Range']
+}));
 app.use(morgan('combined'));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
@@ -62,10 +86,23 @@ app.use('/api/orders', orderRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({
+  console.error('Error:', err.stack);
+  
+  // Handle CORS errors
+  if (err.message === 'Not allowed by CORS') {
+    return res.status(403).json({
+      success: false,
+      message: 'CORS: Origin not allowed',
+      error: process.env.NODE_ENV === 'production' ? {} : err.message
+    });
+  }
+  
+  // Handle other errors
+  res.status(err.status || 500).json({
+    success: false,
     message: 'Something went wrong!',
-    error: process.env.NODE_ENV === 'production' ? {} : err.message
+    error: process.env.NODE_ENV === 'production' ? {} : err.message,
+    ...(process.env.NODE_ENV !== 'production' && { stack: err.stack })
   });
 });
 
