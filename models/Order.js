@@ -8,19 +8,33 @@ const OrderSchema = new mongoose.Schema(
       index: true,
       default: null 
     },
+    waiter: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      index: true,
+      default: null
+    },
     customerName: { type: String, required: true, trim: true },
     customerEmail: { type: String, trim: true },
     customerPhone: { type: String, trim: true },
     totalAmount: { type: Number, required: true, min: 0 },
     status: {
       type: String,
-      enum: ['pending', 'confirmed', 'preparing', 'ready', 'delivered', 'cancelled', 'completed'],
+      enum: ['pending', 'confirmed', 'preparing', 'ready', 'on-the-way', 'delivered', 'cancelled', 'completed'],
       default: 'pending',
     },
     paymentMethod: {
       type: String,
       enum: ['cash', 'card', 'online'],
       default: 'cash',
+    },
+    paymentConfirmed: {
+      type: Boolean,
+      default: false,
+    },
+    isPreOrder: {
+      type: Boolean,
+      default: false,
     },
     table: { type: String, trim: true },
     orderItems: [

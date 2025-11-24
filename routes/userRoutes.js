@@ -5,10 +5,16 @@ import {
   getUserById,
   createUser,
   updateUser,
-  deleteUser
+  deleteUser,
+  getCurrentUser
 } from '../controllers/userController.js';
 
 const router = express.Router();
+
+// @route   GET /api/users/me
+// @desc    Get current user
+// @access  Private (authenticated)
+router.get('/me', authenticate, getCurrentUser);
 
 // @route   GET /api/users
 // @desc    Get all users

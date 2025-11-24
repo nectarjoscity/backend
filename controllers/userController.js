@@ -54,3 +54,14 @@ export const deleteUser = async (req, res) => {
     res.status(500).json({ success: false, message: 'Error deleting user', error: error.message });
   }
 };
+
+// Get current user (me) - controller
+export const getCurrentUser = async (req, res) => {
+  try {
+    const user = await UserService.getUserById(req.user.id);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+    res.status(200).json({ success: true, data: user });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Error fetching user', error: error.message });
+  }
+};

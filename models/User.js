@@ -35,6 +35,11 @@ const userSchema = new mongoose.Schema({
     enum: ['user', 'admin'],
     default: 'user'
   },
+  permissions: {
+    type: [String],
+    default: [],
+    enum: ['dashboard', 'catalog', 'orders', 'kitchen', 'waiters', 'analytics', 'team', 'settings']
+  },
   isActive: {
     type: Boolean,
     default: true

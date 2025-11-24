@@ -4,10 +4,34 @@ import MenuItem from '../models/MenuItem.js';
 import Category from '../models/Category.js';
 import mongoose from 'mongoose';
 import { searchSimilar } from '../services/vectorStoreService.js';
+import { uploadImageToCloudinary, deleteImageFromCloudinary, extractPublicIdFromUrl } from '../utils/uploadImage.js';
 
 export const createMenuItem = async (req, res) => {
   try {
-    const item = await MenuService.createMenuItem(req.body);
+    let imageUrl = req.body.imageUrl; // Use existing imageUrl if provided
+    
+    // If file is uploaded, upload to Cloudinary
+    if (req.file) {
+      try {
+        const uploadResult = await uploadImageToCloudinary(req.file.buffer, {
+          folder: 'nectarv/menu-items',
+        });
+        imageUrl = uploadResult.url;
+      } catch (uploadError) {
+        console.error('Cloudinary upload error:', uploadError);
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to upload image. Please try again.',
+        });
+      }
+    }
+
+    const itemData = {
+      ...req.body,
+      imageUrl,
+    };
+
+    const item = await MenuService.createMenuItem(itemData);
     // Auto-index in vector store (non-blocking)
     reindexMenuItem(item._id).catch(err => console.error('Error indexing menu item:', err));
     return res.status(201).json({ success: true, message: 'Menu item created successfully', data: item });
@@ -340,8 +364,52 @@ export const getMenuItemById = async (req, res) => {
 
 export const updateMenuItem = async (req, res) => {
   try {
-    const item = await MenuService.updateMenuItem(req.params.id, req.body);
+    // Get existing item to check for old image
+    const existingItem = await MenuItem.findById(req.params.id);
+    if (!existingItem) {
+      return res.status(404).json({ success: false, message: 'Menu item not found' });
+    }
+
+    let imageUrl = req.body.imageUrl; // Use provided imageUrl or keep existing
+    
+    // If new file is uploaded, upload to Cloudinary
+    if (req.file) {
+      try {
+        // Delete old image from Cloudinary if it exists
+        if (existingItem.imageUrl) {
+          const oldPublicId = extractPublicIdFromUrl(existingItem.imageUrl);
+          if (oldPublicId) {
+            await deleteImageFromCloudinary(oldPublicId).catch(err => {
+              console.warn('Failed to delete old image from Cloudinary:', err);
+            });
+          }
+        }
+
+        // Upload new image
+        const uploadResult = await uploadImageToCloudinary(req.file.buffer, {
+          folder: 'nectarv/menu-items',
+        });
+        imageUrl = uploadResult.url;
+      } catch (uploadError) {
+        console.error('Cloudinary upload error:', uploadError);
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to upload image. Please try again.',
+        });
+      }
+    } else if (req.body.imageUrl === undefined) {
+      // If imageUrl is not provided and no file uploaded, keep existing
+      imageUrl = existingItem.imageUrl;
+    }
+
+    const updateData = {
+      ...req.body,
+      imageUrl,
+    };
+
+    const item = await MenuService.updateMenuItem(req.params.id, updateData);
     if (!item) return res.status(404).json({ success: false, message: 'Menu item not found' });
+    
     // Auto-reindex in vector store (non-blocking)
     reindexMenuItem(item._id).catch(err => console.error('Error reindexing menu item:', err));
     return res.status(200).json({ success: true, message: 'Menu item updated successfully', data: item });
@@ -353,8 +421,25 @@ export const updateMenuItem = async (req, res) => {
 
 export const deleteMenuItem = async (req, res) => {
   try {
+    // Get item before deletion to access imageUrl
+    const existingItem = await MenuItem.findById(req.params.id);
+    if (!existingItem) {
+      return res.status(404).json({ success: false, message: 'Menu item not found' });
+    }
+
     const item = await MenuService.deleteMenuItem(req.params.id, { soft: req.query.soft });
     if (!item) return res.status(404).json({ success: false, message: 'Menu item not found' });
+
+    // If hard delete, remove image from Cloudinary
+    if (req.query.soft !== 'true' && existingItem.imageUrl) {
+      const publicId = extractPublicIdFromUrl(existingItem.imageUrl);
+      if (publicId) {
+        await deleteImageFromCloudinary(publicId).catch(err => {
+          console.warn('Failed to delete image from Cloudinary:', err);
+        });
+      }
+    }
+
     return res.status(200).json({ success: true, message: req.query.soft === 'true' ? 'Menu item deactivated' : 'Menu item deleted', data: item });
   } catch (error) {
     return res.status(500).json({ success: false, message: 'Error deleting menu item', error: error.message });

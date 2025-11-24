@@ -16,10 +16,10 @@ export const getUserById = async (id) => {
   return user;
 };
 
-export const createUser = async ({ name, email, password, role }) => {
+export const createUser = async ({ name, email, password, role, permissions = [] }) => {
   const existing = await UserRepo.findByEmail(email);
   if (existing) throw errorWithStatus(400, 'User with this email already exists');
-  const user = await UserRepo.create({ name, email, password, role });
+  const user = await UserRepo.create({ name, email, password, role, permissions });
   return user;
 };
 
