@@ -66,7 +66,7 @@ export const getMenuItems = async ({ category, active, available, search, name }
     }
   }
   
-  // Default to active and available items unless explicitly specified otherwise
+  // Default to active items unless explicitly specified otherwise
   if (active === 'false') {
     filter.isActive = false;
   } else {
@@ -74,12 +74,14 @@ export const getMenuItems = async ({ category, active, available, search, name }
     filter.isActive = true;
   }
   
-  if (available === 'false') {
-    filter.isAvailable = false;
-  } else {
-    // Default to available items (unless explicitly set to false)
+  // Only filter by availability if explicitly specified
+  // If not specified, show all items (both available and out of stock)
+  if (available === 'true') {
     filter.isAvailable = true;
+  } else if (available === 'false') {
+    filter.isAvailable = false;
   }
+  // If available is not specified, don't add the filter (show all items)
   if (name) {
     // Expand: search by name OR description (partial, case-insensitive)
     const pattern = String(name).trim();
@@ -128,6 +130,13 @@ export const updateMenuItem = async (id, updates) => {
     const numericPrice = typeof data.price === 'string' ? parseFloat(String(data.price).replace(/[^\d.]/g, '')) : data.price;
     if (Number.isNaN(numericPrice)) throw errorWithStatus(400, 'Invalid price value');
     data.price = numericPrice;
+  }
+
+  // Convert isAvailable from string to boolean if needed
+  if (data.isAvailable !== undefined) {
+    if (typeof data.isAvailable === 'string') {
+      data.isAvailable = data.isAvailable === 'true' || data.isAvailable === 'on';
+    }
   }
 
   const item = await MenuRepo.updateById(id, data, { new: true, runValidators: true });

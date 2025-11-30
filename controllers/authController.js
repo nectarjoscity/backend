@@ -6,6 +6,15 @@ export const login = async (req, res) => {
   try {
     const { username, email, password } = req.body;
     
+    console.log('[DEBUG AUTH] Login attempt:', {
+      hasUsername: !!username,
+      hasEmail: !!email,
+      hasPassword: !!password,
+      emailValue: email,
+      usernameValue: username,
+      passwordLength: password?.length
+    });
+    
     if (!password) {
       return res.status(400).json({ 
         success: false, 
@@ -28,28 +37,113 @@ export const login = async (req, res) => {
     
     // Find user by username or email
     let user;
+    const searchEmail = email ? String(email).toLowerCase().trim() : null;
+    const searchUsername = username ? String(username).toLowerCase().trim() : null;
+    
+    console.log('[DEBUG AUTH] Searching for user:', { searchEmail, searchUsername });
+    
     if (username) {
       user = await User.findOne({ 
         $or: [
-          { username: String(username).toLowerCase() },
-          { email: String(username).toLowerCase() }
+          { username: searchUsername },
+          { email: searchUsername }
         ]
       });
     } else {
-      user = await User.findOne({ email: String(email).toLowerCase() });
+      user = await User.findOne({ email: searchEmail });
     }
     
-    if (!user || !user.isActive) {
+    console.log('[DEBUG AUTH] User lookup result:', {
+      found: !!user,
+      userId: user?._id,
+      userEmail: user?.email,
+      isActive: user?.isActive
+    });
+    
+    // If user doesn't exist, auto-register them
+    if (!user) {
+      console.log('[DEBUG AUTH] User not found, attempting auto-registration');
+      
+      // Extract name from email
+      const emailForName = email || username;
+      const autoName = emailForName?.split('@')[0] || 'User';
+      const normalizedEmail = (email || username).toLowerCase().trim();
+      
+      try {
+        // Create new user
+        const userData = {
+          name: autoName,
+          email: normalizedEmail,
+          password: password
+        };
+        
+        // If username was provided and it's not an email, use it as username
+        if (username && !username.includes('@')) {
+          userData.username = username.toLowerCase().trim();
+        }
+        
+        console.log('[DEBUG AUTH] Creating new user:', {
+          name: userData.name,
+          email: userData.email,
+          hasUsername: !!userData.username
+        });
+        
+        const newUser = await User.create(userData);
+        
+        console.log('[DEBUG AUTH] User created successfully:', {
+          userId: newUser._id,
+          email: newUser.email
+        });
+        
+        // Generate token for the new user
+        const payload = { sub: newUser.id, role: newUser.role };
+        const token = jwt.sign(payload, process.env.JWT_SECRET || 'dev-secret', { expiresIn: '7d' });
+        
+        return res.status(201).json({ 
+          success: true, 
+          message: `Welcome to NectarV, ${newUser.name}! 🎉 Your account has been created successfully. I'll learn from your preferences to provide personalized recommendations. How can I help you today?`,
+          mode: 'chat',
+          data: { token, user: newUser.toJSON() }
+        });
+      } catch (regError) {
+        console.error('[DEBUG AUTH] Auto-registration failed:', regError);
+        
+        // If registration failed due to duplicate, it means user exists but we couldn't find them
+        if (regError.code === 11000) {
+          return res.status(401).json({ 
+            success: false, 
+            message: 'This email is already registered. Please check your password and try again.',
+            mode: 'chat',
+            needsClarification: true,
+            clarificationQuestion: 'This email is already registered. Please check your password and try again.'
+          });
+        }
+        
+        return res.status(400).json({ 
+          success: false, 
+          message: regError.message || 'Could not create account. Please try again.',
+          mode: 'chat',
+          needsClarification: true,
+          clarificationQuestion: 'Could not create your account. Please try again with valid details.'
+        });
+      }
+    }
+    
+    // User exists but is inactive
+    if (!user.isActive) {
+      console.log('[DEBUG AUTH] User found but inactive');
       return res.status(401).json({ 
         success: false, 
-        message: 'Invalid credentials. Please check your username/email and password.',
+        message: 'Your account has been deactivated. Please contact support.',
         mode: 'chat',
         needsClarification: true,
-        clarificationQuestion: 'Invalid credentials. Would you like to try again or create a new account?'
+        clarificationQuestion: 'Your account has been deactivated. Would you like to create a new account?'
       });
     }
     
     const match = await user.comparePassword(password);
+    console.log('[DEBUG AUTH] Password comparison:', { match });
+    
     if (!match) {
       return res.status(401).json({ 
         success: false, 
@@ -83,6 +177,16 @@ export const register = async (req, res) => {
   try {
     const { name, username, email, password } = req.body;
     
+    console.log('[DEBUG AUTH] Register attempt:', {
+      hasName: !!name,
+      hasUsername: !!username,
+      hasEmail: !!email,
+      hasPassword: !!password,
+      emailValue: email,
+      nameValue: name,
+      passwordLength: password?.length
+    });
+    
     // Validation
     if (!name || !email || !password) {
       return res.status(400).json({ 
@@ -105,7 +209,14 @@ export const register = async (req, res) => {
     }
     
     // Check if email already exists
-    const existingEmail = await User.findOne({ email: String(email).toLowerCase() });
+    const normalizedEmail = String(email).toLowerCase().trim();
+    const existingEmail = await User.findOne({ email: normalizedEmail });
+    
+    console.log('[DEBUG AUTH] Email check:', {
+      normalizedEmail,
+      exists: !!existingEmail
+    });
+    
     if (existingEmail) {
       return res.status(400).json({ 
         success: false, 
@@ -133,7 +244,7 @@ export const register = async (req, res) => {
     // Create user
     const userData = {
       name: name.trim(),
-      email: String(email).toLowerCase(),
+      email: normalizedEmail,
       password,
     };
     
@@ -141,7 +252,19 @@ export const register = async (req, res) => {
       userData.username = String(username).toLowerCase().trim();
     }
     
+    console.log('[DEBUG AUTH] Creating user with data:', {
+      name: userData.name,
+      email: userData.email,
+      hasUsername: !!userData.username,
+      passwordLength: password.length
+    });
+    
     const user = await User.create(userData);
+    
+    console.log('[DEBUG AUTH] User created successfully:', {
+      userId: user._id,
+      email: user.email
+    });
     
     // Generate token
     const payload = { sub: user.id, role: user.role };

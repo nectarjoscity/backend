@@ -6,7 +6,7 @@ import MenuItemIngredient from '../models/MenuItemIngredient.js';
 import InventoryTransaction from '../models/InventoryTransaction.js';
 
 // Deduct inventory for an order
-const deductInventoryForOrder = async (order) => {
+export const deductInventoryForOrder = async (order) => {
   const transactions = [];
   const errors = [];
   

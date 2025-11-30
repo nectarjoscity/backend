@@ -13,6 +13,7 @@ import authRoutes from './routes/authRoutes.js';
 import contactRoutes from './routes/contactRoutes.js';
 import inventoryRoutes from './routes/inventoryRoutes.js';
 import accountingRoutes from './routes/accountingRoutes.js';
+import paymentRoutes from './routes/paymentRoutes.js';
 
 // Load environment variables
 dotenv.config();
@@ -148,6 +149,7 @@ app.use('/api/orders', orderRoutes);
 app.use('/api/contact', contactRoutes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/api/accounting', accountingRoutes);
+app.use('/api/payments', paymentRoutes);
 
 // Error handling middleware - must be after routes
 app.use((err, req, res, next) => {

@@ -32,6 +32,22 @@ const OrderSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    paymentReference: {
+      type: String,
+      trim: true,
+    },
+    virtualAccountNumber: {
+      type: String,
+      trim: true,
+    },
+    virtualAccountName: {
+      type: String,
+      trim: true,
+    },
+    virtualAccountBank: {
+      type: String,
+      trim: true,
+    },
     isPreOrder: {
       type: Boolean,
       default: false,
