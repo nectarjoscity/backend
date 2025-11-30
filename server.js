@@ -11,6 +11,8 @@ import deepseekRouter from './middleware/deepseekRouter.js';
 import orderRoutes from './routes/orderRoutes.js';
 import authRoutes from './routes/authRoutes.js';
 import contactRoutes from './routes/contactRoutes.js';
+import inventoryRoutes from './routes/inventoryRoutes.js';
+import accountingRoutes from './routes/accountingRoutes.js';
 
 // Load environment variables
 dotenv.config();
@@ -144,6 +146,8 @@ app.use('/api/categories', categoryRoutes);
 app.use('/api/menu-items', menuItemRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/contact', contactRoutes);
+app.use('/api/inventory', inventoryRoutes);
+app.use('/api/accounting', accountingRoutes);
 
 // Error handling middleware - must be after routes
 app.use((err, req, res, next) => {

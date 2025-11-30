@@ -1,6 +1,86 @@
 import * as OrderRepository from '../repositories/orderRepository.js';
 import * as OrderItemRepository from '../repositories/orderItemRepository.js';
 import { sendOrderStatusEmail, sendOrderConfirmationEmail } from '../utils/emailService.js';
+import InventoryItem from '../models/InventoryItem.js';
+import MenuItemIngredient from '../models/MenuItemIngredient.js';
+import InventoryTransaction from '../models/InventoryTransaction.js';
+
+// Deduct inventory for an order
+const deductInventoryForOrder = async (order) => {
+  const transactions = [];
+  const errors = [];
+  
+  try {
+    // Get all order items with menu items populated
+    const populatedOrder = await OrderRepository.findById(order._id);
+    
+    if (!populatedOrder || !populatedOrder.orderItems) {
+      console.log('[Inventory] No order items found for order:', order._id);
+      return { success: true, transactions: [] };
+    }
+    
+    for (const orderItem of populatedOrder.orderItems) {
+      const menuItem = orderItem.menuItem;
+      const quantity = orderItem.quantity;
+      
+      if (!menuItem) {
+        console.warn('[Inventory] Order item missing menu item:', orderItem._id);
+        continue;
+      }
+      
+      // Get all ingredients for this menu item
+      const ingredients = await MenuItemIngredient.find({ menuItem: menuItem._id })
+        .populate('inventoryItem');
+      
+      for (const ingredient of ingredients) {
+        const inventoryItem = ingredient.inventoryItem;
+        if (!inventoryItem || !inventoryItem.isActive) {
+          continue;
+        }
+        
+        const totalNeeded = ingredient.quantity * quantity;
+        
+        // Check if enough stock available
+        if (inventoryItem.currentStock < totalNeeded) {
+          const error = {
+            inventoryItem: inventoryItem.name,
+            available: inventoryItem.currentStock,
+            needed: totalNeeded,
+            shortfall: totalNeeded - inventoryItem.currentStock
+          };
+          errors.push(error);
+          console.warn(`[Inventory] Insufficient stock for ${inventoryItem.name}: need ${totalNeeded}, have ${inventoryItem.currentStock}`);
+          // Continue processing but mark the issue
+        }
+        
+        // Deduct inventory (even if insufficient, to track usage)
+        const newStock = Math.max(0, inventoryItem.currentStock - totalNeeded);
+        inventoryItem.currentStock = newStock;
+        await inventoryItem.save();
+        
+        // Create transaction record
+        const transaction = await InventoryTransaction.create({
+          inventoryItem: inventoryItem._id,
+          type: 'sale',
+          quantity: -totalNeeded, // Negative for deduction
+          unit: ingredient.unit,
+          costPerUnit: inventoryItem.costPerUnit,
+          totalCost: totalNeeded * inventoryItem.costPerUnit,
+          order: order._id,
+          menuItem: menuItem._id,
+          notes: `Deducted for order ${order._id} - ${menuItem.name} x${quantity}`
+        });
+        
+        transactions.push(transaction);
+      }
+    }
+    
+    return { success: errors.length === 0, transactions, errors };
+  } catch (error) {
+    console.error('[Inventory] Error deducting inventory:', error);
+    throw error;
+  }
+};
 
 export const createOrder = async (orderData) => {
   console.log('[OrderService] Creating order with data:', JSON.stringify(orderData, null, 2));
@@ -34,6 +114,20 @@ export const createOrder = async (orderData) => {
   const populatedOrder = await OrderRepository.findById(newOrder._id);
   console.log('[OrderService] Populated order:', populatedOrder?._id);
   
+  // Deduct inventory when payment is confirmed (for cash orders) or immediately (for transfer)
+  if (orderHeader.paymentConfirmed || orderHeader.paymentMethod !== 'cash') {
+    try {
+      const inventoryResult = await deductInventoryForOrder(populatedOrder);
+      if (inventoryResult.errors && inventoryResult.errors.length > 0) {
+        console.warn('[OrderService] Inventory warnings:', inventoryResult.errors);
+        // You might want to notify admin about low stock
+      }
+    } catch (inventoryError) {
+      console.error('[OrderService] Failed to deduct inventory:', inventoryError);
+      // Don't fail the order creation, but log the error
+    }
+  }
+  
   // Send order confirmation email (async, don't wait for it)
   if (populatedOrder.customerEmail) {
     sendOrderConfirmationEmail(populatedOrder).catch(err => {
@@ -58,6 +152,19 @@ export const updateOrder = async (id, updateData) => {
   
   // Update the order
   const updatedOrder = await OrderRepository.update(id, updateData);
+  
+  // If payment was just confirmed, deduct inventory now
+  if (updateData.paymentConfirmed === true && oldOrder && !oldOrder.paymentConfirmed) {
+    try {
+      const populatedOrder = await OrderRepository.findById(id);
+      const inventoryResult = await deductInventoryForOrder(populatedOrder);
+      if (inventoryResult.errors && inventoryResult.errors.length > 0) {
+        console.warn('[OrderService] Inventory warnings on payment confirmation:', inventoryResult.errors);
+      }
+    } catch (inventoryError) {
+      console.error('[OrderService] Failed to deduct inventory on payment confirmation:', inventoryError);
+    }
+  }
   
   // Send email notification if status changed and customer has email
   if (updateData.status && oldOrder && oldOrder.status !== updateData.status) {
