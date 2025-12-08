@@ -1,0 +1,26 @@
+# Dependencies
+node_modules
+npm-debug.log
+
+# Git
+.git
+.gitignore
+
+# Environment files (secrets should be set via Cloud Run)
+.env
+.env.*
+!.env.example
+
+# Development files
+*.md
+.vscode
+.idea
+logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+*.pdf

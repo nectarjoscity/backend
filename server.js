@@ -15,6 +15,7 @@ import inventoryRoutes from './routes/inventoryRoutes.js';
 import accountingRoutes from './routes/accountingRoutes.js';
 import paymentRoutes from './routes/paymentRoutes.js';
 import invoiceRoutes from './routes/invoiceRoutes.js';
+import recommendationRoutes from './routes/recommendationRoutes.js';
 
 // Load environment variables
 dotenv.config();
@@ -152,6 +153,7 @@ app.use('/api/inventory', inventoryRoutes);
 app.use('/api/accounting', accountingRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/invoices', invoiceRoutes);
+app.use('/api/recommendations', recommendationRoutes);
 
 // Error handling middleware - must be after routes
 app.use((err, req, res, next) => {
