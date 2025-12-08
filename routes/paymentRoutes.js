@@ -24,5 +24,18 @@ router.post('/verify', PaymentController.verifyPayment);
  */
 router.post('/webhook', PaymentController.processWebhook);
 
-export default router;
+/**
+ * @route   GET /api/payments/transactions
+ * @desc    Get transaction history with pagination and filters
+ * @access  Private (admin)
+ */
+router.get('/transactions', PaymentController.getTransactions);
 
+/**
+ * @route   GET /api/payments/stats
+ * @desc    Get transaction statistics for dashboard
+ * @access  Private (admin)
+ */
+router.get('/stats', PaymentController.getTransactionStats);
+
+export default router;
