@@ -2,11 +2,11 @@ import mongoose from 'mongoose';
 
 const OrderSchema = new mongoose.Schema(
   {
-    user: { 
-      type: mongoose.Schema.Types.ObjectId, 
-      ref: 'User', 
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
       index: true,
-      default: null 
+      default: null
     },
     waiter: {
       type: mongoose.Schema.Types.ObjectId,
@@ -53,6 +53,13 @@ const OrderSchema = new mongoose.Schema(
       default: false,
     },
     table: { type: String, trim: true },
+    deliveryAddress: { type: String, trim: true },
+    // Location tracking for analytics
+    location: {
+      latitude: { type: Number, default: null },
+      longitude: { type: Number, default: null },
+      accuracy: { type: Number, default: null },
+    },
     orderItems: [
       {
         type: mongoose.Schema.Types.ObjectId,

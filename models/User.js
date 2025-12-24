@@ -38,7 +38,7 @@ const userSchema = new mongoose.Schema({
   permissions: {
     type: [String],
     default: [],
-    enum: ['dashboard', 'catalog', 'orders', 'kitchen', 'waiters', 'analytics', 'team', 'settings', 'invoices']
+    enum: ['dashboard', 'catalog', 'orders', 'kitchen', 'waiters', 'analytics', 'team', 'settings', 'invoices', 'customers']
   },
   isActive: {
     type: Boolean,

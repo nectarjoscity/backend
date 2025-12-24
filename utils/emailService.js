@@ -20,14 +20,14 @@ const generateOrderItemsHTML = (orderItems) => {
 
     return `
       <div class="order-item" style="display: flex; gap: 12px; padding: 12px; background: #ffffff; border-radius: 8px; margin-bottom: 12px; border: 1px solid #e5e7eb;">
-        ${imageUrl 
-          ? `<div style="flex-shrink: 0; width: 80px; height: 80px; border-radius: 8px; overflow: hidden; background: #f3f4f6;">
+        ${imageUrl
+        ? `<div style="flex-shrink: 0; width: 80px; height: 80px; border-radius: 8px; overflow: hidden; background: #f3f4f6;">
               <img src="${imageUrl}" alt="${name}" style="width: 100%; height: 100%; object-fit: cover;" />
             </div>`
-          : `<div style="flex-shrink: 0; width: 80px; height: 80px; border-radius: 8px; background: #f3f4f6; display: flex; align-items: center; justify-content: center; font-size: 32px;">
+        : `<div style="flex-shrink: 0; width: 80px; height: 80px; border-radius: 8px; background: #f3f4f6; display: flex; align-items: center; justify-content: center; font-size: 32px;">
               ${emoji}
             </div>`
-        }
+      }
         <div style="flex: 1; min-width: 0;">
           <div style="font-weight: 600; font-size: 15px; color: #111827; margin-bottom: 4px;">${name}</div>
           <div style="font-size: 13px; color: #6b7280; margin-bottom: 8px;">Quantity: ${quantity}</div>
@@ -904,10 +904,10 @@ const emailTemplates = {
                 </div>
 
                 <div class="highlight-message">
-                  <p>📍 ${order.table 
-                    ? 'Your meal is coming right away! Our server will bring it to your table in just a moment. 🚀'
-                    : 'Your order is ready! We are currently looking for a dispatch rider to deliver your order. You will receive another notification once your order is on its way. 🛵'
-                  }</p>
+                  <p>📍 ${order.table
+        ? 'Your meal is coming right away! Our server will bring it to your table in just a moment. 🚀'
+        : 'Your order is ready! We are currently looking for a dispatch rider to deliver your order. You will receive another notification once your order is on its way. 🛵'
+      }</p>
                 </div>
                 
                 <p>${order.table ? 'Thank you for dining with us! We hope you enjoy your meal! 🍽️' : 'Thank you for your patience. We will notify you as soon as your order is dispatched! 🍽️'}</p>
@@ -935,7 +935,7 @@ const emailTemplates = {
       - Total Amount: ₦${Number(order.totalAmount).toFixed(2)}
       - Payment Method: ${order.paymentMethod.charAt(0).toUpperCase() + order.paymentMethod.slice(1)}
       
-      ${order.table 
+      ${order.table
         ? '📍 Your meal is coming right away! Our server will bring it to your table in just a moment. 🚀'
         : '📍 Your order is ready! We are currently looking for a dispatch rider to deliver your order. You will receive another notification once your order is on its way. 🛵'
       }
@@ -1398,3 +1398,156 @@ export const sendOrderConfirmationEmail = async (order) => {
   }
 };
 
+// Default template settings
+const DEFAULT_TEMPLATE = {
+  brandName: 'NECTARV',
+  tagline: 'Premium Nigerian Cuisine',
+  ctaText: 'ORDER NOW',
+  ctaUrl: 'https://nectar.ng',
+  primaryColor: '#10b981',
+  headerColor: '#059669',
+  footerColor: '#065f46',
+  footerText: 'Thank you for choosing NectarV! 💚',
+  footerSubtext: 'Delicious Nigerian meals, delivered fresh.',
+  features: [
+    { icon: '🚀', label: 'Fast Delivery' },
+    { icon: '🍳', label: 'Fresh Meals' },
+    { icon: '⭐', label: 'Premium Quality' },
+  ],
+};
+
+// Send custom/promotional email to customers
+export const sendCustomEmail = async ({ to, subject, message, customerName, template = {} }) => {
+  try {
+    const transporter = createTransporter();
+    const t = { ...DEFAULT_TEMPLATE, ...template };
+
+    // Generate features HTML
+    const featuresHtml = t.features.map((f, i) => `
+      <td width="33.33%" style="padding: 20px 10px; text-align: center;${i < t.features.length - 1 ? ' border-right: 1px solid rgba(255,255,255,0.2);' : ''}">
+        <div style="font-size: 24px; margin-bottom: 4px;">${f.icon}</div>
+        <div style="font-size: 12px; font-weight: 600; color: #ffffff; text-transform: uppercase; letter-spacing: 0.5px;">${f.label}</div>
+      </td>
+    `).join('');
+
+    const mailOptions = {
+      from: `"${t.brandName}" <${process.env.GMAIL_USER}>`,
+      to: to,
+      subject: subject,
+      html: `
+        <!DOCTYPE html>
+        <html lang="en">
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <meta http-equiv="X-UA-Compatible" content="IE=edge">
+            <title>${subject}</title>
+          </head>
+          <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; background-color: #f3f4f6;">
+            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f3f4f6;">
+              <tr>
+                <td align="center" style="padding: 40px 20px;">
+                  <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="max-width: 600px; background-color: #ffffff; border-radius: 24px; overflow: hidden; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);">
+                    
+                    <!-- Header -->
+                    <tr>
+                      <td style="background: linear-gradient(135deg, ${t.headerColor} 0%, ${t.primaryColor} 50%, #34d399 100%); padding: 50px 40px; text-align: center;">
+                        <div style="width: 70px; height: 70px; background-color: rgba(255,255,255,0.2); border-radius: 20px; margin: 0 auto 20px; line-height: 70px; font-size: 36px;">🍽️</div>
+                        <h1 style="margin: 0; font-size: 32px; font-weight: 800; color: #ffffff; letter-spacing: -0.5px; text-transform: uppercase;">${t.brandName}</h1>
+                        <p style="margin: 8px 0 0 0; font-size: 14px; color: rgba(255,255,255,0.85); font-weight: 500; letter-spacing: 2px; text-transform: uppercase;">${t.tagline}</p>
+                      </td>
+                    </tr>
+                    
+                    <!-- Subject Banner -->
+                    <tr>
+                      <td style="background-color: ${t.footerColor}; padding: 20px 40px; text-align: center;">
+                        <h2 style="margin: 0; font-size: 22px; font-weight: 700; color: #ffffff;">${subject}</h2>
+                      </td>
+                    </tr>
+                    
+                    <!-- Content -->
+                    <tr>
+                      <td style="padding: 40px;">
+                        <p style="margin: 0 0 20px 0; font-size: 20px; font-weight: 600; color: #1f2937;">Hey ${customerName || 'Valued Customer'},</p>
+                        <div style="background-color: #f0fdf4; border-left: 4px solid ${t.primaryColor}; border-radius: 0 12px 12px 0; padding: 24px; margin: 24px 0;">
+                          <p style="margin: 0; font-size: 16px; line-height: 1.8; color: #374151; white-space: pre-wrap;">${message.replace(/\n/g, '<br>')}</p>
+                        </div>
+                        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin-top: 32px;">
+                          <tr>
+                            <td align="center">
+                              <a href="${t.ctaUrl}" style="display: inline-block; background: linear-gradient(135deg, ${t.headerColor} 0%, ${t.primaryColor} 100%); color: #ffffff; font-size: 16px; font-weight: 700; text-decoration: none; padding: 16px 40px; border-radius: 50px; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);">${t.ctaText}</a>
+                            </td>
+                          </tr>
+                        </table>
+                      </td>
+                    </tr>
+                    
+                    <!-- Features Bar -->
+                    <tr>
+                      <td style="background-color: ${t.primaryColor}; padding: 0;">
+                        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                          <tr>${featuresHtml}</tr>
+                        </table>
+                      </td>
+                    </tr>
+                    
+                    <!-- Footer -->
+                    <tr>
+                      <td style="background-color: ${t.footerColor}; padding: 32px 40px; text-align: center;">
+                        <p style="margin: 0 0 12px 0; font-size: 16px; font-weight: 600; color: #ffffff;">${t.footerText}</p>
+                        <p style="margin: 0 0 20px 0; font-size: 14px; color: rgba(255,255,255,0.8);">${t.footerSubtext}</p>
+                        <p style="margin: 20px 0 0 0; font-size: 12px; color: rgba(255,255,255,0.6);">© ${new Date().getFullYear()} ${t.brandName}. All rights reserved.</p>
+                      </td>
+                    </tr>
+                    
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </body>
+        </html>
+      `,
+      text: `Hey ${customerName || 'Valued Customer'},\n\n${message}\n\n---\n\n${t.ctaText}: ${t.ctaUrl}\n\n${t.footerText}\n${t.footerSubtext}\n\n© ${new Date().getFullYear()} ${t.brandName}. All rights reserved.`,
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log('[EmailService] Custom email sent to:', to, 'MessageId:', info.messageId);
+    return { success: true, messageId: info.messageId };
+  } catch (error) {
+    console.error('[EmailService] Error sending custom email:', error);
+    return { success: false, message: error.message };
+  }
+};
+
+// Send bulk email to multiple customers
+export const sendBulkEmail = async ({ recipients, subject, message, template }) => {
+  const results = [];
+
+  for (const recipient of recipients) {
+    const result = await sendCustomEmail({
+      to: recipient.email,
+      subject,
+      message,
+      customerName: recipient.name,
+      template,
+    });
+    results.push({
+      email: recipient.email,
+      name: recipient.name,
+      ...result,
+    });
+
+    // Small delay to avoid rate limiting
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+
+  const successCount = results.filter(r => r.success).length;
+  const failureCount = results.filter(r => !r.success).length;
+
+  return {
+    success: failureCount === 0,
+    totalSent: successCount,
+    totalFailed: failureCount,
+    results,
+  };
+};

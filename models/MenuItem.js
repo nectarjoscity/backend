@@ -13,6 +13,13 @@ const MenuItemSchema = new Schema(
     isAvailable: { type: Boolean, default: true },
     isActive: { type: Boolean, default: true },
     category: { type: Schema.Types.ObjectId, ref: 'Category', required: true },
+    // Experience Design: Emotional tags and pairing suggestions
+    emotionalTag: {
+      type: String,
+      enum: ['comfort', 'special', 'power', 'fresh', 'share', null],
+      default: null
+    },
+    pairsWith: [{ type: Schema.Types.ObjectId, ref: 'MenuItem' }],
   },
   { timestamps: true }
 );
