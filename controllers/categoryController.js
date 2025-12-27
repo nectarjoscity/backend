@@ -1,5 +1,6 @@
 import * as CategoryService from '../services/categoryService.js';
 import { reindexCategory } from '../services/knowledgeBaseService.js';
+import { formatError } from '../utils/formatError.js';
 
 // Create Category (controller only)
 export const createCategory = async (req, res) => {
@@ -11,7 +12,7 @@ export const createCategory = async (req, res) => {
     return res.status(201).json({ success: true, message: 'Category created successfully', data: category });
   } catch (error) {
     const status = error.status || 400;
-    return res.status(status).json({ success: false, message: error.message || 'Error creating category' });
+    return res.status(status).json({ success: false, message: formatError(error) });
   }
 };
 
@@ -20,26 +21,26 @@ export const getCategories = async (req, res) => {
   try {
     // Support both RAG filters (deepseekFilters) and regular query params
     const source = req.deepseekFilters || req.query;
-    const categories = await CategoryService.getCategories({ 
-      active: source.active, 
-      search: source.search, 
-      name: source.name 
+    const categories = await CategoryService.getCategories({
+      active: source.active,
+      search: source.search,
+      name: source.name
     });
     return res.status(200).json({ success: true, count: categories.length, data: categories });
   } catch (error) {
     console.error('Error in getCategories:', error);
     // Check if it's a database connection error
     if (error.name === 'MongoServerError' || error.name === 'MongooseError' || error.message?.includes('MongoDB') || error.message?.includes('connection')) {
-      return res.status(503).json({ 
-        success: false, 
-        message: 'Database connection error. Please check your MongoDB configuration.', 
-        error: process.env.NODE_ENV === 'production' ? {} : error.message 
+      return res.status(503).json({
+        success: false,
+        message: 'Database connection error. Please check your MongoDB configuration.',
+        error: process.env.NODE_ENV === 'production' ? {} : error.message
       });
     }
-    return res.status(500).json({ 
-      success: false, 
-      message: 'Error fetching categories', 
-      error: process.env.NODE_ENV === 'production' ? {} : error.message 
+    return res.status(500).json({
+      success: false,
+      message: 'Error fetching categories',
+      error: process.env.NODE_ENV === 'production' ? {} : error.message
     });
   }
 };
@@ -65,7 +66,7 @@ export const updateCategory = async (req, res) => {
     return res.status(200).json({ success: true, message: 'Category updated successfully', data: category });
   } catch (error) {
     const status = error.status || 400;
-    return res.status(status).json({ success: false, message: error.message || 'Error updating category' });
+    return res.status(status).json({ success: false, message: formatError(error) });
   }
 };
 

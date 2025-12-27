@@ -359,3 +359,69 @@ export const getTaxSummary = async (req, res) => {
     });
   }
 };
+
+// Get Dashboard Overview Metrics
+export const getDashboardMetrics = async (req, res) => {
+  try {
+    const metrics = await AccountingService.getDashboardMetrics();
+
+    res.json({
+      success: true,
+      data: metrics
+    });
+  } catch (error) {
+    console.error('Error fetching dashboard metrics:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch dashboard metrics',
+      error: error.message
+    });
+  }
+};
+
+// Get Menu Item Profitability
+export const getMenuProfitability = async (req, res) => {
+  try {
+    const profitability = await AccountingService.getMenuProfitability();
+
+    res.json({
+      success: true,
+      data: profitability
+    });
+  } catch (error) {
+    console.error('Error fetching menu profitability:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch menu profitability',
+      error: error.message
+    });
+  }
+};
+
+// Get Food Cost with Estimate
+export const getFoodCostAnalysis = async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+
+    if (!startDate || !endDate) {
+      return res.status(400).json({
+        success: false,
+        message: 'Start date and end date are required'
+      });
+    }
+
+    const analysis = await AccountingService.calculateFoodCostWithEstimate(startDate, endDate);
+
+    res.json({
+      success: true,
+      data: analysis
+    });
+  } catch (error) {
+    console.error('Error calculating food cost analysis:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to calculate food cost analysis',
+      error: error.message
+    });
+  }
+};

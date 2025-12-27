@@ -21,4 +21,11 @@ router.get('/reports/cash-flow', AccountingController.getCashFlowStatement);
 router.get('/reports/revenue-analysis', AccountingController.getRevenueAnalysis);
 router.get('/reports/tax-summary', AccountingController.getTaxSummary);
 
+// Dashboard overview
+router.get('/dashboard', AccountingController.getDashboardMetrics);
+
+// Menu profitability and food cost
+router.get('/menu-profitability', AccountingController.getMenuProfitability);
+router.get('/food-cost', AccountingController.getFoodCostAnalysis);
+
 export default router;
