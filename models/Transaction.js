@@ -17,7 +17,7 @@ const TransactionSchema = new mongoose.Schema(
         // Transaction type
         type: {
             type: String,
-            enum: ['payment', 'refund', 'adjustment'],
+            enum: ['payment', 'refund', 'adjustment', 'subscription'],
             default: 'payment',
             index: true,
         },
